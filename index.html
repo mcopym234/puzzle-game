@@ -58,18 +58,19 @@
         .puzzle-piece {
             background-size: 300% 300%;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: all 0.2s ease;
             border-radius: 5px;
             position: relative;
+            aspect-ratio: 1;
         }
         
         .puzzle-piece:hover {
-            transform: scale(0.98);
+            opacity: 0.9;
         }
         
         .puzzle-piece.empty {
             background: #ddd !important;
-            cursor: default;
+            cursor: pointer;
         }
         
         .puzzle-piece .number {
@@ -237,8 +238,8 @@
     
     <script>
         let gridSize = 3;
-        let pieces = [];
-        let emptyPos = { row: 2, col: 2 };
+        let tiles = []; // 存储每个位置的方块索引
+        let emptyIndex = 8; // 空位索引
         let moves = 0;
         let isSolved = false;
         
@@ -248,101 +249,96 @@
             grid.innerHTML = '';
             grid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
             
-            pieces = [];
+            const total = gridSize * gridSize;
+            tiles = [];
+            
+            // 创建有序的方块数组
+            for (let i = 0; i < total; i++) {
+                tiles.push(i);
+            }
+            emptyIndex = total - 1;
+            
+            renderGrid();
+            moves = 0;
+            isSolved = false;
+            updateInfo();
+        }
+        
+        // 渲染网格
+        function renderGrid() {
+            const grid = document.getElementById('puzzle-grid');
+            grid.innerHTML = '';
+            
             const total = gridSize * gridSize;
             
             for (let i = 0; i < total; i++) {
-                const row = Math.floor(i / gridSize);
-                const col = i % gridSize;
-                
+                const tileIndex = tiles[i];
                 const piece = document.createElement('div');
                 piece.className = 'puzzle-piece';
                 
-                if (i === total - 1) {
+                if (tileIndex === total - 1) {
+                    // 这是空位
                     piece.classList.add('empty');
-                    emptyPos = { row, col };
+                    piece.onclick = () => tryMove(i);
                 } else {
-                    const bgRow = (row / (gridSize - 1)) * 100;
-                    const bgCol = (col / (gridSize - 1)) * 100;
+                    // 计算这个方块应该在的背景位置
+                    const correctRow = Math.floor(tileIndex / gridSize);
+                    const correctCol = tileIndex % gridSize;
+                    const bgRow = (correctRow / (gridSize - 1)) * 100;
+                    const bgCol = (correctCol / (gridSize - 1)) * 100;
+                    
                     piece.style.backgroundImage = 'url(puzzle-image.jpg)';
                     piece.style.backgroundPosition = `${bgCol}% ${bgRow}%`;
                     piece.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
                     
                     const number = document.createElement('span');
                     number.className = 'number';
-                    number.textContent = i + 1;
+                    number.textContent = tileIndex + 1;
                     piece.appendChild(number);
+                    
+                    piece.onclick = () => tryMove(i);
                 }
                 
-                piece.dataset.row = row;
-                piece.dataset.col = col;
-                piece.dataset.correctRow = row;
-                piece.dataset.correctCol = col;
-                
-                piece.onclick = () => movePiece(row, col);
-                
-                pieces.push({ row, col, element: piece, isCorrect: true });
                 grid.appendChild(piece);
             }
-            
-            moves = 0;
-            isSolved = false;
-            updateInfo();
         }
         
-        // 移动方块
-        function movePiece(row, col) {
+        // 尝试移动
+        function tryMove(index) {
             if (isSolved) return;
             
-            const dRow = Math.abs(row - emptyPos.row);
-            const dCol = Math.abs(col - emptyPos.col);
+            const emptyRow = Math.floor(emptyIndex / gridSize);
+            const emptyCol = emptyIndex % gridSize;
+            const clickedRow = Math.floor(index / gridSize);
+            const clickedCol = index % gridSize;
             
-            if ((dRow === 1 && dCol === 0) || (dRow === 0 && dCol === 1)) {
-                const grid = document.getElementById('puzzle-grid');
-                const pieces = Array.from(grid.children);
-                
-                const clickedPiece = pieces.find(p => 
-                    parseInt(p.dataset.row) === row && parseInt(p.dataset.col) === col
-                );
-                const emptyPiece = pieces.find(p => 
-                    parseInt(p.dataset.row) === emptyPos.row && parseInt(p.dataset.col) === emptyPos.col
-                );
-                
-                // 交换位置
-                const tempRow = clickedPiece.dataset.row;
-                const tempCol = clickedPiece.dataset.col;
-                
-                clickedPiece.dataset.row = emptyPos.row;
-                clickedPiece.dataset.col = emptyPos.col;
-                emptyPiece.dataset.row = tempRow;
-                emptyPiece.dataset.col = tempCol;
-                
-                emptyPos = { row, col };
-                
+            // 检查是否相邻（上下左右）
+            const isAdjacent = (
+                (Math.abs(emptyRow - clickedRow) === 1 && emptyCol === clickedCol) ||
+                (Math.abs(emptyCol - clickedCol) === 1 && emptyRow === clickedRow)
+            );
+            
+            if (isAdjacent) {
+                // 交换方块
+                [tiles[emptyIndex], tiles[index]] = [tiles[index], tiles[emptyIndex]];
+                emptyIndex = index;
                 moves++;
                 updateInfo();
+                renderGrid();
                 checkWin();
             }
         }
         
         // 检查是否完成
         function checkWin() {
-            const grid = document.getElementById('puzzle-grid');
-            const pieces = Array.from(grid.children);
-            
-            let correct = true;
-            pieces.forEach((piece, index) => {
-                const row = parseInt(piece.dataset.row);
-                const col = parseInt(piece.dataset.col);
-                const correctRow = Math.floor(index / gridSize);
-                const correctCol = index % gridSize;
-                
-                if (row !== correctRow || col !== correctCol) {
-                    correct = false;
+            const total = gridSize * gridSize;
+            for (let i = 0; i < total - 1; i++) {
+                if (tiles[i] !== i) {
+                    return;
                 }
-            });
+            }
             
-            if (correct && moves > 0) {
+            if (moves > 0) {
                 isSolved = true;
                 showWinMessage();
             }
@@ -350,24 +346,28 @@
         
         // 打乱
         function shuffle() {
-            const grid = document.getElementById('puzzle-grid');
-            const pieces = Array.from(grid.children);
+            const total = gridSize * gridSize;
             
-            // 随机移动 100 次
+            // 随机移动 100 次确保可解
             for (let i = 0; i < 100; i++) {
+                const emptyRow = Math.floor(emptyIndex / gridSize);
+                const emptyCol = emptyIndex % gridSize;
                 const neighbors = [];
                 
-                if (emptyPos.row > 0) neighbors.push({ row: emptyPos.row - 1, col: emptyPos.col });
-                if (emptyPos.row < gridSize - 1) neighbors.push({ row: emptyPos.row + 1, col: emptyPos.col });
-                if (emptyPos.col > 0) neighbors.push({ row: emptyPos.row, col: emptyPos.col - 1 });
-                if (emptyPos.col < gridSize - 1) neighbors.push({ row: emptyPos.row, col: emptyPos.col + 1 });
+                if (emptyRow > 0) neighbors.push(emptyIndex - gridSize);
+                if (emptyRow < gridSize - 1) neighbors.push(emptyIndex + gridSize);
+                if (emptyCol > 0) neighbors.push(emptyIndex - 1);
+                if (emptyCol < gridSize - 1) neighbors.push(emptyIndex + 1);
                 
-                const random = neighbors[Math.floor(Math.random() * neighbors.length)];
-                movePiece(random.row, random.col);
+                const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                [tiles[emptyIndex], tiles[randomNeighbor]] = [tiles[randomNeighbor], tiles[emptyIndex]];
+                emptyIndex = randomNeighbor;
             }
             
             moves = 0;
+            isSolved = false;
             updateInfo();
+            renderGrid();
         }
         
         // 重置
