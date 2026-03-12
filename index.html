@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>拼图游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .info {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .puzzle-container {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+            background: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 1;
+        }
+        
+        .puzzle-piece {
+            background-size: 300% 300%;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            border-radius: 5px;
+            position: relative;
+        }
+        
+        .puzzle-piece:hover {
+            transform: scale(0.98);
+        }
+        
+        .puzzle-piece.empty {
+            background: #ddd !important;
+            cursor: default;
+        }
+        
+        .puzzle-piece .number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px white;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .preview-label {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .preview-image {
+            max-width: 150px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .win-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            max-width: 90%;
+        }
+        
+        .win-message.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .win-message h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .win-message p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .win-message button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 999;
+        }
+        
+        .overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .difficulty {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .difficulty button {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        
+        .difficulty button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧩 拼图游戏</h1>
+    <p class="info">点击方块移动，还原完整图片</p>
+    
+    <div class="puzzle-container">
+        <div class="difficulty">
+            <button onclick="setDifficulty(3)" id="btn-3" class="active">简单 3×3</button>
+            <button onclick="setDifficulty(4)" id="btn-4">中等 4×4</button>
+            <button onclick="setDifficulty(5)" id="btn-5">困难 5×5</button>
+        </div>
+        
+        <div class="puzzle-grid" id="puzzle-grid"></div>
+        
+        <div class="controls">
+            <button onclick="shuffle()">🔀 打乱</button>
+            <button onclick="reset()">🔄 重置</button>
+            <button onclick="showPreview()">👁️ 预览</button>
+        </div>
+    </div>
+    
+    <div class="preview-container">
+        <p class="preview-label">原图预览：</p>
+        <img src="puzzle-image.jpg" alt="拼图原图" class="preview-image" onerror="this.style.display='none'">
+    </div>
+    
+    <div class="overlay" id="overlay" onclick="hidePreview()"></div>
+    
+    <div class="win-message" id="win-message">
+        <h2>🎉 恭喜完成！</h2>
+        <p>您成功还原了拼图！</p>
+        <p id="move-count"></p>
+        <button onclick="closeWinMessage()">再玩一次</button>
+    </div>
+    
+    <script>
+        let gridSize = 3;
+        let pieces = [];
+        let emptyPos = { row: 2, col: 2 };
+        let moves = 0;
+        let isSolved = false;
+        
+        // 初始化游戏
+        function init() {
+            const grid = document.getElementById('puzzle-grid');
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            
+            pieces = [];
+            const total = gridSize * gridSize;
+            
+            for (let i = 0; i < total; i++) {
+                const row = Math.floor(i / gridSize);
+                const col = i % gridSize;
+                
+                const piece = document.createElement('div');
+                piece.className = 'puzzle-piece';
+                
+                if (i === total - 1) {
+                    piece.classList.add('empty');
+                    emptyPos = { row, col };
+                } else {
+                    const bgRow = (row / (gridSize - 1)) * 100;
+                    const bgCol = (col / (gridSize - 1)) * 100;
+                    piece.style.backgroundImage = 'url(puzzle-image.jpg)';
+                    piece.style.backgroundPosition = `${bgCol}% ${bgRow}%`;
+                    piece.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                    
+                    const number = document.createElement('span');
+                    number.className = 'number';
+                    number.textContent = i + 1;
+                    piece.appendChild(number);
+                }
+                
+                piece.dataset.row = row;
+                piece.dataset.col = col;
+                piece.dataset.correctRow = row;
+                piece.dataset.correctCol = col;
+                
+                piece.onclick = () => movePiece(row, col);
+                
+                pieces.push({ row, col, element: piece, isCorrect: true });
+                grid.appendChild(piece);
+            }
+            
+            moves = 0;
+            isSolved = false;
+            updateInfo();
+        }
+        
+        // 移动方块
+        function movePiece(row, col) {
+            if (isSolved) return;
+            
+            const dRow = Math.abs(row - emptyPos.row);
+            const dCol = Math.abs(col - emptyPos.col);
+            
+            if ((dRow === 1 && dCol === 0) || (dRow === 0 && dCol === 1)) {
+                const grid = document.getElementById('puzzle-grid');
+                const pieces = Array.from(grid.children);
+                
+                const clickedPiece = pieces.find(p => 
+                    parseInt(p.dataset.row) === row && parseInt(p.dataset.col) === col
+                );
+                const emptyPiece = pieces.find(p => 
+                    parseInt(p.dataset.row) === emptyPos.row && parseInt(p.dataset.col) === emptyPos.col
+                );
+                
+                // 交换位置
+                const tempRow = clickedPiece.dataset.row;
+                const tempCol = clickedPiece.dataset.col;
+                
+                clickedPiece.dataset.row = emptyPos.row;
+                clickedPiece.dataset.col = emptyPos.col;
+                emptyPiece.dataset.row = tempRow;
+                emptyPiece.dataset.col = tempCol;
+                
+                emptyPos = { row, col };
+                
+                moves++;
+                updateInfo();
+                checkWin();
+            }
+        }
+        
+        // 检查是否完成
+        function checkWin() {
+            const grid = document.getElementById('puzzle-grid');
+            const pieces = Array.from(grid.children);
+            
+            let correct = true;
+            pieces.forEach((piece, index) => {
+                const row = parseInt(piece.dataset.row);
+                const col = parseInt(piece.dataset.col);
+                const correctRow = Math.floor(index / gridSize);
+                const correctCol = index % gridSize;
+                
+                if (row !== correctRow || col !== correctCol) {
+                    correct = false;
+                }
+            });
+            
+            if (correct && moves > 0) {
+                isSolved = true;
+                showWinMessage();
+            }
+        }
+        
+        // 打乱
+        function shuffle() {
+            const grid = document.getElementById('puzzle-grid');
+            const pieces = Array.from(grid.children);
+            
+            // 随机移动 100 次
+            for (let i = 0; i < 100; i++) {
+                const neighbors = [];
+                
+                if (emptyPos.row > 0) neighbors.push({ row: emptyPos.row - 1, col: emptyPos.col });
+                if (emptyPos.row < gridSize - 1) neighbors.push({ row: emptyPos.row + 1, col: emptyPos.col });
+                if (emptyPos.col > 0) neighbors.push({ row: emptyPos.row, col: emptyPos.col - 1 });
+                if (emptyPos.col < gridSize - 1) neighbors.push({ row: emptyPos.row, col: emptyPos.col + 1 });
+                
+                const random = neighbors[Math.floor(Math.random() * neighbors.length)];
+                movePiece(random.row, random.col);
+            }
+            
+            moves = 0;
+            updateInfo();
+        }
+        
+        // 重置
+        function reset() {
+            init();
+        }
+        
+        // 设置难度
+        function setDifficulty(size) {
+            gridSize = size;
+            
+            document.querySelectorAll('.difficulty button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`btn-${size}`).classList.add('active');
+            
+            init();
+        }
+        
+        // 更新信息
+        function updateInfo() {
+            document.querySelector('.info').textContent = `移动步数：${moves}`;
+        }
+        
+        // 显示预览
+        function showPreview() {
+            const overlay = document.getElementById('overlay');
+            const preview = document.querySelector('.preview-image');
+            
+            if (preview && preview.src) {
+                overlay.classList.add('show');
+                preview.style.maxWidth = '300px';
+                preview.style.position = 'fixed';
+                preview.style.top = '50%';
+                preview.style.left = '50%';
+                preview.style.transform = 'translate(-50%, -50%)';
+                preview.style.zIndex = '1001';
+            }
+        }
+        
+        // 隐藏预览
+        function hidePreview() {
+            const overlay = document.getElementById('overlay');
+            const preview = document.querySelector('.preview-image');
+            
+            overlay.classList.remove('show');
+            preview.style.maxWidth = '150px';
+            preview.style.position = '';
+            preview.style.top = '';
+            preview.style.left = '';
+            preview.style.transform = '';
+            preview.style.zIndex = '';
+        }
+        
+        // 显示胜利消息
+        function showWinMessage() {
+            document.getElementById('move-count').textContent = `总步数：${moves}`;
+            document.getElementById('win-message').classList.add('show');
+            document.getElementById('overlay').classList.add('show');
+        }
+        
+        // 关闭胜利消息
+        function closeWinMessage() {
+            document.getElementById('win-message').classList.remove('show');
+            document.getElementById('overlay').classList.remove('show');
+            shuffle();
+        }
+        
+        // 启动游戏
+        init();
+    </script>
+</body>
+</html>
